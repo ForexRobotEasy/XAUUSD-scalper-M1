@@ -1,0 +1,96 @@
+mql5
+//+------------------------------------------------------------------+
+//|                                              XAUUSD scalper M1   |
+//|                          Developed by Forex Robot Easy Team       |
+//|                              Website: forexroboteasy.com         |
+//+------------------------------------------------------------------+
+
+// Define constants
+#property version   '1.00'
+#property strict
+#property script_show_inputs
+
+// Define input parameters
+input int minTrades = 2; // Minimum number of trades per day
+input int maxTrades = 10; // Maximum number of trades per day
+input double stopLossPips = 10; // Stop loss in pips
+input double takeProfitPips = 20; // Take profit in pips
+
+// Define global variables
+double previousPrice = 0; // Previous price
+int tradesCount = 0; // Number of trades executed
+
+//+------------------------------------------------------------------+
+//| Custom indicator initialization function                         |
+//+------------------------------------------------------------------+
+int OnInit()
+{
+    // Initialize previous price
+    previousPrice = SymbolInfoDouble(Symbol(), SYMBOL_BID);
+
+    return(INIT_SUCCEEDED);
+}
+
+//+------------------------------------------------------------------+
+//| Custom indicator iteration function                              |
+//+------------------------------------------------------------------+
+void OnTick()
+{
+    // Update previous price
+    double currentPrice = SymbolInfoDouble(Symbol(), SYMBOL_BID);
+
+    // Check if a new trading opportunity has occurred
+    if(MathAbs(currentPrice - previousPrice) >= stopLossPips)
+    {
+        // Check if the maximum number of trades has been reached
+        if(tradesCount >= maxTrades)
+        {
+            // Close all open orders
+            for(int i = 0; i < OrdersTotal(); i++)
+            {
+                if(OrderSelect(i, SELECT_BY_POS, MODE_TRADES))
+                {
+                    OrderClose(OrderTicket(), OrderLots(), currentPrice, 0, clrRed);
+                }
+            }
+
+            // Reset trades count
+            tradesCount = 0;
+        }
+
+        // Check if the minimum number of trades has been reached
+        if(tradesCount < minTrades)
+        {
+            // Open a new trade
+            double lotSize = NormalizeDouble(AccountFreeMargin() * 0.01 / stopLossPips, 2);
+
+            if(lotSize > 0)
+            {
+                int ticket = OrderSend(Symbol(), OP_BUY, lotSize, currentPrice, 0, currentPrice - stopLossPips * SymbolInfoDouble(Symbol(), SYMBOL_POINT), currentPrice + takeProfitPips * SymbolInfoDouble(Symbol(), SYMBOL_POINT), 'XAUUSD Scalper M1', 0, 0, clrBlue);
+
+                if(ticket > 0)
+                {
+                    tradesCount++;
+                }
+            }
+        }
+    }
+
+    // Update previous price
+    previousPrice = currentPrice;
+}
+
+//+------------------------------------------------------------------+
+//| Custom indicator deinitialization function                       |
+//+------------------------------------------------------------------+
+void OnDeinit(const int reason)
+{
+    // Close all open orders
+    for(int i = 0; i < OrdersTotal(); i++)
+    {
+        if(OrderSelect(i, SELECT_BY_POS, MODE_TRADES))
+        {
+            OrderClose(OrderTicket(), OrderLots(), SymbolInfoDouble(Symbol(), SYMBOL_BID), 0, clrRed);
+        }
+    }
+}
